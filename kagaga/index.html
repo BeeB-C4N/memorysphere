@@ -1,1 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>思い出スフィア</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      font-family: 'Noto Serif JP', serif;
+      color: white;
+    }
+    canvas {
+      display: block;
+    }
+    .audio-guide {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+      color: white;
+      padding: 20px 0 15px 0;
+      text-align: center;
+      z-index: 50;
+      transition: opacity 0.5s;
+    }
+    .audio-guide h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 400;
+    }
+    .audio-guide audio {
+      margin-top: 10px;
+      width: 80%;
+      max-width: 500px;
+      height: 35px;
+    }
+    audio::-webkit-media-controls-panel {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+    }
+    audio::-webkit-media-controls-time-remaining-display,
+    audio::-webkit-media-controls-current-time-display {
+        color: #fff;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 100;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    .modal img {
+      max-width: 90vw;
+      max-height: 85vh;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="webgl"></canvas>
 
+  <div class="modal" id="imageModal">
+    <img id="modalImage" src="" alt="拡大画像" />
+  </div>
+
+  <div class="audio-guide">
+    <h2>思い出スフィア -加賀市大聖寺川水害の記憶-</h2>
+    <audio id="guideAudio" controls>
+      <!-- ./media/daishoji.wav を直接参照します -->
+      <source src="./media/daishojigawa.wav" type="audio/wav" />
+      お使いのブラウザはオーディオ要素をサポートしていません。
+    </audio>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // --- 基本設定 (シーン、カメラ、レンダラーなど) ---
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.z = 15;
+    const canvas = document.querySelector('#webgl');
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    directionalLight.position.set(5, 5, 5);
+    scene.add(directionalLight);
+
+    // --- 星空の背景 ---
+    const starGeometry = new THREE.BufferGeometry();
+    const starVertices = [];
+    for (let i = 0; i < 5000; i++) {
+      const x = (Math.random() - 0.5) * 2000;
+      const y = (Math.random() - 0.5) * 2000;
+      const z = (Math.random() - 0.5) * 2000;
+      starVertices.push(x, y, z);
+    }
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7 });
+    const starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+
+    // ▼▼▼【重要】ここに media フォルダ内の画像ファイル名をすべて記述してください ▼▼▼
+    const imageFiles = [
+        "1002px-大聖寺水害（1981年7月3日）_個人提供写真_05.jpg"
+        "1013px-大聖寺水害（1981年7月3日）_個人提供写真_09.jpg"
+        "1019px-大聖寺水害（1959年8月14日）敷地橋.jpg"
+        "1019px-大聖寺水害（1959年8月14日）鍛冶町付近.jpg"
+        "1029px-大聖寺水害（1959年8月14日）弓町より荒町.jpg"
+        "1033px-Ka_al_0094_29_大聖寺水害（1959年8月14日）本町より中町.jpg"
+        "1052px-大聖寺水害（1959年8月14日）新町タカハシ前.jpg"
+        "1052px-大聖寺水害（1981年7月3日）_個人提供写真_02.jpg"
+        "1052px-大聖寺水害（1981年7月3日）_個人提供写真_07.jpg"
+        "1054px-Ka_al_0094_33_大聖寺水害（1981年7月3日）.jpg"
+        "1055px-大聖寺水害（1981年7月3日）_個人提供写真_01.jpg"
+        "1057px-大聖寺水害（1981年7月3日）_個人提供写真_03.jpg"
+        "1060px-大聖寺水害（1981年7月3日）_個人提供写真_06.jpg"
+        "1063px-大聖寺水害（1981年7月3日）_個人提供写真_04.jpg"
+        "503px-大聖寺水害（1981年7月3日）_個人提供写真_08.jpg"
+        "909px-大聖寺水害（1959年8月14日）南町アラヤ靴店前.jpg"
+        "919px-大聖寺水害（1959年8月14日）石部神社前.jpg"
+        "930px-大聖寺水害（1933年7月24日）本町・杉山酒店前.jpg"
+        "946px-大聖寺水害（1959年8月14日）荒町.jpg"
+        "961px-大聖寺水害（1959年8月14日）.jpg"
+        "credit.jpg"
+        "大聖寺水害（1933年7月24日）.jpg"
+        "大聖寺水害（1933年7月24日）中新道稲津鉄鋼付近.jpg"
+        "大聖寺水害（1933年7月24日）中新道稲津鉄鋼付近２.jpg"
+        "大聖寺水害（1959年8月14日）一本橋より五軒町.jpg"
+        "大聖寺水害（1959年8月14日）南警察署付近.jpg"
+        "大聖寺水害（1959年8月14日）大聖寺劇場前.jpg"
+        "大聖寺水害（1959年8月14日）旧郵便局前.jpg"
+        "大聖寺水害（1959年8月14日）東横町より願成寺.jpg"
+        "大聖寺水害（1959年8月14日）２.jpg"
+    ];
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    // 配列をシャッフルして、毎回ランダムな配置にする関数
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+    shuffleArray(imageFiles);
+
+    // ファイル名の配列から、three.jsで使うためのデータ構造を生成
+    const contentData = imageFiles.map(file => {
+      const path = `./media/${file}`;
+      return {
+        image: path,     // モーダル表示用の画像パス
+        thumbnail: path  // テクスチャ用の画像パス
+      };
+    });
+
+    // --- 画像を球体状に配置 ---
+    const textureLoader = new THREE.TextureLoader();
+    const imageGroup = new THREE.Group();
+    const radius = 7;
+    const imageCount = contentData.length;
+
+    contentData.forEach((data, i) => {
+      // ローカルのテクスチャを読み込み
+      const texture = textureLoader.load(data.thumbnail);
+      const geometry = new THREE.PlaneGeometry(2.5, 2.5);
+      const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, roughness: 0.7, metalness: 0.1 });
+      const mesh = new THREE.Mesh(geometry, material);
+
+      // フィボナッチ・スフィア アルゴリズムで均等に配置
+      const y = 1 - (i / (imageCount - 1)) * 2;
+      const r = Math.sqrt(1 - y * y);
+      const theta = (Math.PI * (3 - Math.sqrt(5))) * i;
+      mesh.position.set(Math.cos(theta) * r * radius, y * radius, Math.sin(theta) * r * radius);
+      mesh.lookAt(new THREE.Vector3(0, 0, 0));
+      mesh.userData.index = i;
+      imageGroup.add(mesh);
+    });
+    scene.add(imageGroup);
+
+    // --- 操作とイベントリスナー ---
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.4;
+    controls.minDistance = 8;
+    controls.maxDistance = 25;
+    controls.enablePan = false;
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+
+    window.addEventListener('click', (event) => {
+      if (event.target.closest('.audio-guide')) return;
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(imageGroup.children);
+      if (intersects.length > 0) {
+        const data = contentData[intersects[0].object.userData.index];
+        modalImage.src = data.image;
+        modal.style.display = 'flex';
+        controls.autoRotate = false;
+      }
+    });
+
+    modal.addEventListener('click', () => {
+      modal.style.display = 'none';
+      modalImage.src = "";
+      controls.autoRotate = true;
+    });
+
+    // --- アニメーションループとリサイズ処理 ---
+    const animate = () => {
+      controls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    };
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+  </script>
+</body>
+</html>
