@@ -42,12 +42,13 @@
       height: 35px;
     }
     audio::-webkit-media-controls-panel {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.2); /* 少し背景を明るくしました */
         border-radius: 5px;
     }
+    /* ▼ 修正点1: オーディオの時間テキストの色を黒に変更 */
     audio::-webkit-media-controls-time-remaining-display,
     audio::-webkit-media-controls-current-time-display {
-        color: #fff;
+        color: #000; /* 白から黒に変更 */
     }
     .modal {
       display: none;
@@ -82,7 +83,6 @@
   <div class="audio-guide">
     <h2>思い出スフィア -加賀市大聖寺川水害の記憶-</h2>
     <audio id="guideAudio" controls>
-      <!-- ./media/daishoji.wav を直接参照します -->
       <source src="./media/daishojigawa.wav" type="audio/wav" />
       お使いのブラウザはオーディオ要素をサポートしていません。
     </audio>
@@ -128,7 +128,7 @@
     const starField = new THREE.Points(starGeometry, starMaterial);
     scene.add(starField);
 
-    // ▼▼▼【重要】ここに media フォルダ内の画像ファイル名をすべて記述してください ▼▼▼
+    // --- 画像ファイルリスト ---
     const imageFiles = [
         "1002px-大聖寺水害（1981年7月3日）_個人提供写真_05.jpg",
         "1013px-大聖寺水害（1981年7月3日）_個人提供写真_09.jpg",
@@ -161,9 +161,7 @@
         "大聖寺水害（1959年8月14日）東横町より願成寺.jpg",
         "大聖寺水害（1959年8月14日）２.jpg"
     ];
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-    // 配列をシャッフルして、毎回ランダムな配置にする関数
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -172,13 +170,9 @@
     }
     shuffleArray(imageFiles);
 
-    // ファイル名の配列から、three.jsで使うためのデータ構造を生成
     const contentData = imageFiles.map(file => {
       const path = `./media/${file}`;
-      return {
-        image: path,     // モーダル表示用の画像パス
-        thumbnail: path  // テクスチャ用の画像パス
-      };
+      return { image: path, thumbnail: path };
     });
 
     // --- 画像を球体状に配置 ---
@@ -188,18 +182,20 @@
     const imageCount = contentData.length;
 
     contentData.forEach((data, i) => {
-      // ローカルのテクスチャを読み込み
       const texture = textureLoader.load(data.thumbnail);
       const geometry = new THREE.PlaneGeometry(2.5, 2.5);
       const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, roughness: 0.7, metalness: 0.1 });
       const mesh = new THREE.Mesh(geometry, material);
 
-      // フィボナッチ・スフィア アルゴリズムで均等に配置
       const y = 1 - (i / (imageCount - 1)) * 2;
       const r = Math.sqrt(1 - y * y);
       const theta = (Math.PI * (3 - Math.sqrt(5))) * i;
       mesh.position.set(Math.cos(theta) * r * radius, y * radius, Math.sin(theta) * r * radius);
       mesh.lookAt(new THREE.Vector3(0, 0, 0));
+
+      // ▼ 修正点2: 画像をY軸周りに180度回転させて、表を向ける
+      mesh.rotation.y = Math.PI;
+
       mesh.userData.index = i;
       imageGroup.add(mesh);
     });
